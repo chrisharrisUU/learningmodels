@@ -206,7 +206,8 @@ draw <- function(input, choiceindex = FALSE) {
       group_by(trial) %>%
       summarize(choiceindex = mean(choiceindex)) %>%
       ggplot() +
-      geom_line(aes(x = trial, y = choiceindex))
+      geom_line(aes(x = trial, y = choiceindex)) +
+      theme_apa()
   } else {
     input %>%
       ggplot() +
@@ -219,23 +220,23 @@ draw <- function(input, choiceindex = FALSE) {
 
 # Simulate ----------------------------------------------------------------
 # sim_exp1_n10000 <- reswag_sim(n = 10000, initevidence = c(3, 0, 0, 1))
-sim_exp1_n1000r <- reswag_sim(n = 10000, initevidence = c(3, 0, 0, 1))
+sim_exp1_n1000r <- reswag_sim(n = 1000, initevidence = c(3, 0, 0, 1))
 sim_exp1_n1000r %>%
   sumdata_rw() %>%
   draw()
 
-sim_exp1_n1000i <- reswag_sim(n = 10000, initevidence = c(3, 0, 0, 1), outcomeprob = .25)
+sim_exp1_n1000i <- reswag_sim(n = 1000, initevidence = c(0, 3, 1, 0), outcomeprob = .25)
 sim_exp1_n1000i %>%
   sumdata_rw() %>%
   draw()
 
 # sim_exp2_n10000 <- reswag_sim(n = 10000)
-sim_exp2_n1000r <- reswag_sim(n = 10000)
+sim_exp2_n10000r <- reswag_sim(n = 10000)
 sim_exp2_n1000r %>%
   sumdata_rw() %>%
   draw()
 
-sim_exp2_n1000i <- reswag_sim(n = 10000, initevidence = c(3, 1, 9, 3), outcomeprob = .25)
+sim_exp2_n10000i <- reswag_sim(n = 10000, initevidence = c(3, 9, 1, 3), outcomeprob = .25)
 sim_exp2_n1000i %>%
   sumdata_rw() %>%
   draw()
@@ -244,8 +245,7 @@ reswag_sim(n = 10000) %>%
   sumdata_rw() %>%
   draw()
 
-reswag_sim(n = 100) %>%
-  # map(., ~mutate(.x, choiceindex = ifelse(choice == 2, -1, 1))) %>%
+reswag_sim(n = 100, initevidence = c(3, 9, 1, 3), outcomeprob = .25) %>%
   sumdata_rw() %>%
   mutate(alpha = .25,
          beta = 1) %>%
@@ -257,7 +257,7 @@ alphas <- c(.1, .25, .5, .75, .9)
 betas <- c(1, 5, 9)
 
 combinations <- map(alphas, ~map2(.x, betas,
-                                  ~reswag_sim(n = 1000, initevidence = c(3, 1, 9, 3), outcomeprob = .25) %>%
+                                  ~reswag_sim(n = 1000, initevidence = c(3, 9, 1, 3), outcomeprob = .25) %>%
                                     sumdata_rw() %>%
                                     mutate(alpha = .x,
                                            beta = .y))) %>%
@@ -270,3 +270,21 @@ combinations %>%
   geom_line(aes(x = trial, y = choiceprob_left)) +
   theme_apa() +
   facet_wrap(vars(alpha, beta))
+
+# Both conditions ---------------------------------------------------------
+
+rw_rich <- sim_exp2_n10000r %>%
+  map(., ~mutate(.x, choiceindex = ifelse(choiceindex == -1, 0, 1))) %>%
+  sumdata_rw() %>%
+  mutate(condition = "rich")
+rw_imp <- sim_exp2_n10000i %>%
+  map(., ~mutate(.x, choiceindex = ifelse(choiceindex == -1, 0, 1))) %>%
+  sumdata_rw() %>%
+  mutate(condition = "impoverished")
+
+bind_rows(rw_rich, rw_imp) %>%
+  mutate(condition = factor(condition, levels = c("rich", "impoverished"))) %>%
+  ggplot() +
+  geom_line(aes(x = trial, y = choiceindex, color = condition)) +
+  scale_color_brewer(palette = "Dark2") +
+  theme_apa()
