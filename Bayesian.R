@@ -114,7 +114,7 @@ bayes_sim <- function(n = 100,
   # Run per participant
   pout <- map(subjects, ~Bayes_simulate_inev(.x, nTrial, initevidence, outcomeprob))
   # Adjust choiceindex
-  pout <- map(pout, ~mutate(.x, choiceindex = ifelse(choice == 2, -1, 1)))
+  pout <- map(pout, ~mutate(.x, choiceindex = ifelse(choice == 2, 0, 1)))
   # Return
   pout
 }
@@ -148,11 +148,19 @@ sumdata_bl <- function(input, participant = NA) {
 
 
 # Simulate ----------------------------------------------------------------
-test <- bayes_sim(n = 1000) %>%
+test <- bayes_sim(n = 10000) %>%
+  sumdata_bl()
+
+test_imp <- bayes_sim(n = 10000, outcomeprob = .25, initevidence = c(3, 9, 1, 3)) %>%
   sumdata_bl()
 
 
+# Both conditions ---------------------------------------------------------
+
 test %>%
+  ggplot() +
+  geom_line(aes(x = trial, y = dp))
+test_imp %>%
   ggplot() +
   geom_line(aes(x = trial, y = dp))
 
@@ -160,3 +168,14 @@ test %>%
   ggplot() +
   geom_line(aes(x = trial, y = choiceindex)) +
   geom_hline(aes(yintercept = .5), linetype = 3)
+
+bind_rows(test %>%
+            mutate(condition = "rich"),
+          test_imp %>%
+            mutate(condition = "impoverished")) %>%
+  mutate(condition = factor(condition, levels = c("rich", "impoverished"))) %>%
+  ggplot() +
+  geom_line(aes(x = trial, y = choiceindex, color = condition)) +
+  geom_hline(aes(yintercept = .5), linetype = 3) +
+  scale_color_brewer(palette = "Dark2") +
+  theme_apa()
