@@ -22,7 +22,8 @@ match <- function(colmn, prompt) {
 bias_main <- function(noise = noise,
                       nTrial = nTrial,
                       outcomeprob = outcomeprob,
-                      initevidence = initevidence) {
+                      initevidence = initevidence,
+                      subject) {
   # Prompts for left and right option
   prompt_left <- c(1, -1, 0, 0)
   prompt_right <- c(0, 0, 1, -1)
@@ -102,6 +103,9 @@ bias_main <- function(noise = noise,
         tmem <- c(-1, -1, -1, 1)
       }
     }
+    # Update counter
+    # i <- (subject - 1) * (nTrial + ninev) + t
+    # setTxtProgressBar(pb, i)
     
     # Save as (noisy) memory
     results$evidence[t] <- list(tmem * sample(c(rep(-1, noise), rep(1, 4 - noise))))
@@ -116,7 +120,16 @@ bias_sim <- function(n = 100,
                      nTrial = 84,
                      outcomeprob = .75,
                      initevidence = c(9, 3, 3, 1)) {
-  map(1:n, ~bias_main(noise, nTrial, outcomeprob, initevidence))
+  # Set progres bar
+  # m <- n * (nTrial + sum(initevidence))
+  # pb <- txtProgressBar(min = 0, max = m, style = 3)
+  
+  # Run per participant
+  pout <- map(1:n, ~bias_main(noise, nTrial, outcomeprob, initevidence, .x))
+  # Adjust choiceindex
+  pout <- map(pout, ~mutate(.x, choiceindex = ifelse(choice == 1, -1, 1)))
+  # Return
+  pout
 }
 
 sumdata_bi <- function(input, participant = NA) {
@@ -126,6 +139,9 @@ sumdata_bi <- function(input, participant = NA) {
       map(input, "choice") %>%
         as.data.frame() %>%
         transmute(choice = rowMeans(.)),
+      map(input, "choiceindex") %>%
+        as.data.frame() %>%
+        transmute(choiceindex = rowMeans(.)),
       map(input, "cumleft") %>%
         as.data.frame() %>%
         transmute(cumleft = rowMeans(.)),
@@ -143,16 +159,21 @@ sumdata_bi <- function(input, participant = NA) {
 
 # Simulate ----------------------------------------------------------------
 
-test_0 <- bias_sim(noise = 0)
-test_1 <- bias_sim(noise = 1)
+test_0 <- bias_sim(noise = 0, n = 1000)
+test_1 <- bias_sim(noise = 1, n = 1000)
 test_2 <- bias_sim(noise = 2)
 test_3 <- bias_sim(noise = 3)
+
+test_0neg <- bias_sim(noise = 0, outcomeprob = .25, initevidence = c(3, 9, 1, 3), n = 1000)
+test_1neg <- bias_sim(noise = 1, outcomeprob = .25, initevidence = c(3, 9, 1, 3), n = 1000)
+test_2neg <- bias_sim(noise = 2, outcomeprob = .25, initevidence = c(3, 9, 1, 3))
+test_3neg <- bias_sim(noise = 3, outcomeprob = .25, initevidence = c(3, 9, 1, 3))
 
 # Graphs ------------------------------------------------------------------
 p <- seq(0, 1, length = 100)
 
 # Draw as beta distribution
-test_0 %>%
+test_1neg %>%
   sumdata_bi() %>%
   split(.$trial) %>%
   map_dfr(~dbeta(p, .$cumleft, .$cumright)) %>%
@@ -161,8 +182,34 @@ test_0 %>%
   group_by(trial) %>%
   mutate(x = p) %>%
   ungroup %>%
-  mutate(trial = factor(trial, levels = c(0:84))) %>%
+  mutate(trial = factor(trial, levels = c(1:100))) %>%
   ggplot() +
   geom_line(aes(x = x,
                 y = value,
                 color = trial))
+
+# Draw as choiceindex
+test_1neg %>%
+  map(., ~mutate(.x, choiceindex = ifelse(choice == -1, 0, 1))) %>%
+  sumdata_bi() %>%
+  mutate(choiceindex = (-1) * choice) %>%
+  ggplot() +
+  geom_line(aes(x = trial, y = choiceindex)) +
+  theme_apa()
+
+# combine both conditions
+bind_rows(test_1 %>%
+            map(., ~mutate(.x, choiceindex = ifelse(choiceindex == -1, 0, 1))) %>%
+            sumdata_bi() %>%
+            mutate(condition = "rich"),
+          test_1neg %>%
+            map(., ~mutate(.x, choiceindex = ifelse(choiceindex == -1, 0, 1))) %>%
+            sumdata_bi() %>%
+            mutate(condition = "impoverished")) %>%
+  mutate(condition = factor(condition, levels = c("rich", "impoverished"))) %>%
+  ggplot() +
+  geom_line(aes(x = trial, y = choiceindex, color = condition)) +
+  geom_hline(aes(yintercept = .5), linetype = 3) +
+  scale_color_brewer(palette = "Dark2") +
+  theme_apa()
+  
