@@ -119,7 +119,9 @@ mdm_sim <- function(n = 100,
                     initevidence = c(9, 3, 3, 1)) {
   # Set progres bar
   m <- n * (nTrial + sum(initevidence))
-  pb <<- txtProgressBar(min = 0, max = m, style = 3)
+  assign("pb",
+         txtProgressBar(min = 0, max = m, style = 3),
+         envir = .GlobalEnv)
   
   # Run per participant
   pout <- map(1:n, ~mdm_main(noise, nTrial, outcomeprob, initevidence, .x))

@@ -105,8 +105,8 @@ bias_main <- function(noise = noise,
       }
     }
     # Update counter
-    # i <- (subject - 1) * (nTrial + ninev) + t
-    # setTxtProgressBar(pb, i)
+    i <- (subject - 1) * (nTrial + ninev) + t
+    setTxtProgressBar(pb, i)
     
     # Save as (noisy) memory
     results$evidence[t] <- list(tmem * sample(c(rep(-1, noise), rep(1, 4 - noise))))
@@ -122,8 +122,10 @@ bias_sim <- function(n = 100,
                      outcomeprob = .75,
                      initevidence = c(9, 3, 3, 1)) {
   # Set progres bar
-  # m <- n * (nTrial + sum(initevidence))
-  # pb <- txtProgressBar(min = 0, max = m, style = 3)
+  m <- n * (nTrial + sum(initevidence))
+  assign("pb",
+         txtProgressBar(min = 0, max = m, style = 3),
+         envir = .GlobalEnv)
   
   # Run per participant
   pout <- map(1:n, ~bias_main(noise, nTrial, outcomeprob, initevidence, .x))

@@ -10,7 +10,7 @@ library(lme4)
 library(lmerTest)
 
 # Functions ----------------------------------------------------------------
-Bayes_simulate_inev <- function(sID,
+Bayes_simulate_inev <- function(subject,
                                 nTrial = 84,
                                 initevidence,
                                 outcomeprob) {
@@ -97,10 +97,14 @@ Bayes_simulate_inev <- function(sID,
     # Save
     choice[t] <- trialchoice
     outcome[t] <- trialoutcome
+    
+    # Update counter
+    i <- (subject - 1) * (nTrial + ninev) + t
+    setTxtProgressBar(pb, i)
   }
   
   # Return
-  tibble(choice, outcome, dp, id = rep(sID, ninev + nTrial)) %>%
+  tibble(choice, outcome, dp, id = rep(subject, ninev + nTrial)) %>%
     mutate(trial = 1:n())
 }
 
@@ -108,6 +112,12 @@ bayes_sim <- function(n = 100,
                       nTrial = 84,
                       initevidence = c(9, 3 , 3, 1),
                       outcomeprob = .75) {
+  # Set progres bar
+  m <- n * (nTrial + sum(initevidence))
+  assign("pb",
+         txtProgressBar(min = 0, max = m, style = 3),
+         envir = .GlobalEnv)
+  
   # Get input
   subjects <- 1:n
   

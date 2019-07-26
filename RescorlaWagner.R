@@ -11,7 +11,7 @@ library(lmerTest)
 
 # Functions ----------------------------------------------------------------
 RLtutorial_simulate_inev <- function(simpars,
-                                     sID,
+                                     subject,
                                      nTrial = 84,
                                      initevidence,
                                      outcomeprob) {
@@ -130,6 +130,10 @@ RLtutorial_simulate_inev <- function(simpars,
     
     # store choice
     choice[t] <- c
+    
+    # Update counter
+    i <- (subject - 1) * (nTrial + ninev) + t
+    setTxtProgressBar(pb, i)
   }
   
   # Return
@@ -147,6 +151,12 @@ reswag_sim <- function(n = 100,
                        nTrial = 84,
                        initevidence = c(9, 3 , 3, 1),
                        outcomeprob = .75) {
+  # Set progres bar
+  m <- n * (nTrial + sum(initevidence))
+  assign("pb",
+         txtProgressBar(min = 0, max = m, style = 3),
+         envir = .GlobalEnv)
+  
   # Get input
   subjects <- 1:n
   simpars <- c(alpha, beta)
