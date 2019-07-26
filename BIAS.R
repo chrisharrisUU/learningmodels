@@ -4,6 +4,7 @@ library(dplyr)
 library(tidyr)
 library(purrr)
 library(ggplot2)
+library(papaja)
 
 #     y       A |  B || trial 1, 2, ..., n
 # win left    1 |  - ||  1 |  1 | -1 | -1 | -1 | ...
@@ -127,7 +128,7 @@ bias_sim <- function(n = 100,
   # Run per participant
   pout <- map(1:n, ~bias_main(noise, nTrial, outcomeprob, initevidence, .x))
   # Adjust choiceindex
-  pout <- map(pout, ~mutate(.x, choiceindex = ifelse(choice == 1, -1, 1)))
+  pout <- map(pout, ~mutate(.x, choiceindex = ifelse(choice == -1, 1, 0)))
   # Return
   pout
 }
@@ -160,12 +161,12 @@ sumdata_bi <- function(input, participant = NA) {
 # Simulate ----------------------------------------------------------------
 
 test_0 <- bias_sim(noise = 0, n = 1000)
-test_1 <- bias_sim(noise = 1, n = 1000)
+test_1 <- bias_sim(noise = 1, n = 10)
 test_2 <- bias_sim(noise = 2)
 test_3 <- bias_sim(noise = 3)
 
 test_0neg <- bias_sim(noise = 0, outcomeprob = .25, initevidence = c(3, 9, 1, 3), n = 1000)
-test_1neg <- bias_sim(noise = 1, outcomeprob = .25, initevidence = c(3, 9, 1, 3), n = 1000)
+test_1neg <- bias_sim(noise = 1, outcomeprob = .25, initevidence = c(3, 9, 1, 3), n = 10)
 test_2neg <- bias_sim(noise = 2, outcomeprob = .25, initevidence = c(3, 9, 1, 3))
 test_3neg <- bias_sim(noise = 3, outcomeprob = .25, initevidence = c(3, 9, 1, 3))
 
@@ -190,20 +191,16 @@ test_1neg %>%
 
 # Draw as choiceindex
 test_1neg %>%
-  map(., ~mutate(.x, choiceindex = ifelse(choice == -1, 0, 1))) %>%
   sumdata_bi() %>%
-  mutate(choiceindex = (-1) * choice) %>%
   ggplot() +
   geom_line(aes(x = trial, y = choiceindex)) +
   theme_apa()
 
 # combine both conditions
 bind_rows(test_1 %>%
-            map(., ~mutate(.x, choiceindex = ifelse(choiceindex == -1, 0, 1))) %>%
             sumdata_bi() %>%
             mutate(condition = "rich"),
           test_1neg %>%
-            map(., ~mutate(.x, choiceindex = ifelse(choiceindex == -1, 0, 1))) %>%
             sumdata_bi() %>%
             mutate(condition = "impoverished")) %>%
   mutate(condition = factor(condition, levels = c("rich", "impoverished"))) %>%

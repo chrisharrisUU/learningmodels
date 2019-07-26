@@ -155,7 +155,7 @@ reswag_sim <- function(n = 100,
   # Run per participant
   pout <- map(subjects, ~RLtutorial_simulate_inev(simpars, .x, nTrial, initevidence, outcomeprob))
   # Adjust choiceindex
-  pout <- map(pout, ~mutate(.x, choiceindex = ifelse(choice == 2, -1, 1)))
+  pout <- map(pout, ~mutate(.x, choiceindex = ifelse(choice == 2, 0, 1)))
   # Return
   pout
 }
@@ -220,12 +220,12 @@ draw <- function(input, choiceindex = FALSE) {
 
 # Simulate ----------------------------------------------------------------
 # sim_exp1_n10000 <- reswag_sim(n = 10000, initevidence = c(3, 0, 0, 1))
-sim_exp1_n1000r <- reswag_sim(n = 1000, initevidence = c(3, 0, 0, 1))
+sim_exp1_n1000r <- reswag_sim(n = 100, initevidence = c(3, 0, 0, 1))
 sim_exp1_n1000r %>%
   sumdata_rw() %>%
   draw()
 
-sim_exp1_n1000i <- reswag_sim(n = 1000, initevidence = c(0, 3, 1, 0), outcomeprob = .25)
+sim_exp1_n1000i <- reswag_sim(n = 100, initevidence = c(0, 3, 1, 0), outcomeprob = .25)
 sim_exp1_n1000i %>%
   sumdata_rw() %>%
   draw()
@@ -273,12 +273,10 @@ combinations %>%
 
 # Both conditions ---------------------------------------------------------
 
-rw_rich <- sim_exp2_n10000r %>%
-  map(., ~mutate(.x, choiceindex = ifelse(choiceindex == -1, 0, 1))) %>%
+rw_rich <- sim_exp1_n1000r %>%
   sumdata_rw() %>%
   mutate(condition = "rich")
-rw_imp <- sim_exp2_n10000i %>%
-  map(., ~mutate(.x, choiceindex = ifelse(choiceindex == -1, 0, 1))) %>%
+rw_imp <- sim_exp1_n1000i %>%
   sumdata_rw() %>%
   mutate(condition = "impoverished")
 
