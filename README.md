@@ -9,7 +9,7 @@ The learnings models simulated so far are:
  * A **Bayesian** learning model  
  * **BIAS**, an aggregation-based learning model:  
  Fiedler, K. (1996). Explaining and simulating judgment biases as an aggregation phenomenon in probabilistic, multiple-cue environments. *Psychological Review, 103*(1), 193-214.  
- * MINERVA-DM:  
+ * **MINERVA-DM**, a mathematical memory model:  
  Dougherty, M. R. P., Gettys, C. F., & Ogden, E. E. (1999). MINERVA-DM: A memory processes model for judgments of likelihood. *Psychological Review, 106*(1), 180-209.
  
  Please note that this is very much work in progress.
