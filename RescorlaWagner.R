@@ -1,20 +1,19 @@
 # Dependencies ------------------------------------------------------------
 
 library(dplyr)
-library(tidyr)
-library(purrr)
 library(ggplot2)
 library(papaja)
-library(BayesFactor)
-library(lme4)
-library(lmerTest)
+library(purrr)
+library(tidyr)
 
 # Functions ----------------------------------------------------------------
-RLtutorial_simulate_inev <- function(simpars,
-                                     subject,
-                                     nTrial = 84,
-                                     initevidence,
-                                     outcomeprob) {
+if (!exists("sim", mode = "environment")) {sim <- new.env()}
+
+sim$rw_main <- function(simpars,
+                    subject,
+                    nTrial = 84,
+                    initevidence,
+                    outcomeprob) {
   # Get alpha and beta parameters
   alpha <- simpars[1]
   beta <- simpars[2]
@@ -145,7 +144,7 @@ RLtutorial_simulate_inev <- function(simpars,
              outprob = rep(outcomeprob, nt)) %>%
     mutate(trial = 1:n())
 }
-reswag_sim <- function(n = 100,
+rw_sim <- function(n = 100,
                        alpha = .25,
                        beta = 1,
                        nTrial = 84,
@@ -163,13 +162,13 @@ reswag_sim <- function(n = 100,
   names(simpars) <- c("alpha", "beta")
   
   # Run per participant
-  pout <- map(subjects, ~RLtutorial_simulate_inev(simpars, .x, nTrial, initevidence, outcomeprob))
+  pout <- map(subjects, ~sim$rw_main(simpars, .x, nTrial, initevidence, outcomeprob))
   # Adjust choiceindex
   pout <- map(pout, ~mutate(.x, choiceindex = ifelse(choice == 2, 0, 1)))
   # Return
   pout
 }
-sumdata_rw <- function(input, participant = NA) {
+rw_sumdata <- function(input, participant = NA) {
   if (is.na(participant)) {
     # All participants
     data.frame(
@@ -229,34 +228,34 @@ draw <- function(input, choiceindex = FALSE) {
 }
 
 # Simulate ----------------------------------------------------------------
-# sim_exp1_n10000 <- reswag_sim(n = 10000, initevidence = c(3, 0, 0, 1))
-sim_exp1_n1000r <- reswag_sim(n = 100, initevidence = c(3, 0, 0, 1))
+# sim_exp1_n10000 <- rw_sim(n = 10000, initevidence = c(3, 0, 0, 1))
+sim_exp1_n1000r <- rw_sim(n = 100, initevidence = c(3, 0, 0, 1))
 sim_exp1_n1000r %>%
-  sumdata_rw() %>%
+  rw_sumdata() %>%
   draw()
 
-sim_exp1_n1000i <- reswag_sim(n = 100, initevidence = c(0, 3, 1, 0), outcomeprob = .25)
+sim_exp1_n1000i <- rw_sim(n = 100, initevidence = c(0, 3, 1, 0), outcomeprob = .25)
 sim_exp1_n1000i %>%
-  sumdata_rw() %>%
+  rw_sumdata() %>%
   draw()
 
-# sim_exp2_n10000 <- reswag_sim(n = 10000)
-sim_exp2_n10000r <- reswag_sim(n = 10000)
+# sim_exp2_n10000 <- rw_sim(n = 10000)
+sim_exp2_n10000r <- rw_sim(n = 10000)
 sim_exp2_n1000r %>%
-  sumdata_rw() %>%
+  rw_sumdata() %>%
   draw()
 
-sim_exp2_n10000i <- reswag_sim(n = 10000, initevidence = c(3, 9, 1, 3), outcomeprob = .25)
+sim_exp2_n10000i <- rw_sim(n = 10000, initevidence = c(3, 9, 1, 3), outcomeprob = .25)
 sim_exp2_n1000i %>%
-  sumdata_rw() %>%
+  rw_sumdata() %>%
   draw()
 
-reswag_sim(n = 10000) %>%
-  sumdata_rw() %>%
+rw_sim(n = 10000) %>%
+  rw_sumdata() %>%
   draw()
 
-reswag_sim(n = 100, initevidence = c(3, 9, 1, 3), outcomeprob = .25) %>%
-  sumdata_rw() %>%
+rw_sim(n = 100, initevidence = c(3, 9, 1, 3), outcomeprob = .25) %>%
+  rw_sumdata() %>%
   mutate(alpha = .25,
          beta = 1) %>%
   draw(choiceindex = TRUE)
@@ -267,8 +266,8 @@ alphas <- c(.1, .25, .5, .75, .9)
 betas <- c(1, 5, 9)
 
 combinations <- map(alphas, ~map2(.x, betas,
-                                  ~reswag_sim(n = 1000, initevidence = c(3, 9, 1, 3), outcomeprob = .25) %>%
-                                    sumdata_rw() %>%
+                                  ~rw_sim(n = 1000, initevidence = c(3, 9, 1, 3), outcomeprob = .25) %>%
+                                    rw_sumdata() %>%
                                     mutate(alpha = .x,
                                            beta = .y))) %>%
   map(., ~bind_rows(.x)) %>%
@@ -284,10 +283,10 @@ combinations %>%
 # Both conditions ---------------------------------------------------------
 
 rw_rich <- sim_exp1_n1000r %>%
-  sumdata_rw() %>%
+  rw_sumdata() %>%
   mutate(condition = "rich")
 rw_imp <- sim_exp1_n1000i %>%
-  sumdata_rw() %>%
+  rw_sumdata() %>%
   mutate(condition = "impoverished")
 
 bind_rows(rw_rich, rw_imp) %>%

@@ -1,10 +1,10 @@
 # Dependencies ------------------------------------------------------------
 
 library(dplyr)
-library(tidyr)
-library(purrr)
 library(ggplot2)
 library(papaja)
+library(purrr)
+library(tidyr)
 
 #     y       A |  B || trial 1, 2, ..., n
 # win left    1 |  - ||  1 |  1 | -1 | -1 | -1 | ...
@@ -13,14 +13,9 @@ library(papaja)
 # loss right  - | -1 || -1 | -1 | -1 | -1 |  1 | ...
 
 # Functions ---------------------------------------------------------------
-match <- function(colmn, prompt) {
-  tibble(prompt, colmn) %>%
-    transmute(match = ifelse(prompt == colmn, 1, 0)) %>%
-    sum
-  
-}
+if (!exists("sim", mode = "environment")) {sim <- new.env()}
 
-bias_main <- function(noise = noise,
+sim$bias_main <- function(noise = noise,
                       nTrial = nTrial,
                       outcomeprob = outcomeprob,
                       initevidence = initevidence,
@@ -62,10 +57,10 @@ bias_main <- function(noise = noise,
   results <- results %>%
     mutate(left = (results %>%
                      split(.$trial) %>%
-                     map_dbl(~match(unlist(.x$evidence), prompt_left))),
+                     map_dbl(~sim$bias_match(unlist(.x$evidence), prompt_left))),
            right = (results %>%
                       split(.$trial) %>%
-                      map_dbl(~match(unlist(.x$evidence), prompt_right)))) %>%
+                      map_dbl(~sim$bias_match(unlist(.x$evidence), prompt_right)))) %>%
     mutate(cumleft = cumsum(left),
            cumright = cumsum(right))
   
@@ -78,10 +73,10 @@ bias_main <- function(noise = noise,
     # Get recent evidence
     colmn <- results$evidence[t - 1] %>% unlist
     
-    # Calculate matches with respective prompts and update cumulative matches
-    results$left[t] <- match(colmn, prompt_left)
+    # Calculate match with respective prompts and update cumulative matches
+    results$left[t] <- sim$bias_match(colmn, prompt_left)
     results$cumleft[t] <- results$cumleft[t - 1] + results$left[t]
-    results$right[t] <- match(colmn, prompt_right)
+    results$right[t] <- sim$bias_match(colmn, prompt_right)
     results$cumright[t] <- results$cumright[t - 1] + results$right[t]
     
     # Determine choice and outcome
@@ -116,26 +111,34 @@ bias_main <- function(noise = noise,
   results
 }
 
+# Define matching function
+sim$bias_match <- function(colmn, prompt) {
+  tibble(prompt, colmn) %>%
+    transmute(match = ifelse(prompt == colmn, 1, 0)) %>%
+    sum
+  
+}
+
 bias_sim <- function(n = 100,
                      noise = 1,
                      nTrial = 84,
                      outcomeprob = .75,
                      initevidence = c(9, 3, 3, 1)) {
-  # Set progres bar
+  # Set progress bar
   m <- n * (nTrial + sum(initevidence))
   assign("pb",
          txtProgressBar(min = 0, max = m, style = 3),
          envir = .GlobalEnv)
   
   # Run per participant
-  pout <- map(1:n, ~bias_main(noise, nTrial, outcomeprob, initevidence, .x))
+  pout <- map(1:n, ~sim$bias_main(noise, nTrial, outcomeprob, initevidence, .x))
   # Adjust choiceindex
   pout <- map(pout, ~mutate(.x, choiceindex = ifelse(choice == -1, 1, 0)))
   # Return
   pout
 }
 
-sumdata_bi <- function(input, participant = NA) {
+bias_sumdata <- function(input, participant = NA) {
   if (is.na(participant)) {
     # All participants
     data.frame(
@@ -177,7 +180,7 @@ p <- seq(0, 1, length = 100)
 
 # Draw as beta distribution
 test_1neg %>%
-  sumdata_bi() %>%
+  bias_sumdata() %>%
   split(.$trial) %>%
   map_dfr(~dbeta(p, .$cumleft, .$cumright)) %>%
   gather(key = "trial",
@@ -193,17 +196,17 @@ test_1neg %>%
 
 # Draw as choiceindex
 test_1neg %>%
-  sumdata_bi() %>%
+  bias_sumdata() %>%
   ggplot() +
   geom_line(aes(x = trial, y = choiceindex)) +
   theme_apa()
 
 # combine both conditions
 bind_rows(test_1 %>%
-            sumdata_bi() %>%
+            bias_sumdata() %>%
             mutate(condition = "rich"),
           test_1neg %>%
-            sumdata_bi() %>%
+            bias_sumdata() %>%
             mutate(condition = "impoverished")) %>%
   mutate(condition = factor(condition, levels = c("rich", "impoverished"))) %>%
   ggplot() +

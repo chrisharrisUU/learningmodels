@@ -1,16 +1,15 @@
 # Dependencies ------------------------------------------------------------
 
 library(dplyr)
-library(tidyr)
-library(purrr)
 library(ggplot2)
 library(papaja)
-library(BayesFactor)
-library(lme4)
-library(lmerTest)
+library(purrr)
+library(tidyr)
 
 # Functions ----------------------------------------------------------------
-Bayes_simulate_inev <- function(subject,
+if (!exists("sim", mode = "environment")) {sim <- new.env()}
+
+sim$bayes_main <- function(subject,
                                 nTrial = 84,
                                 initevidence,
                                 outcomeprob) {
@@ -122,14 +121,14 @@ bayes_sim <- function(n = 100,
   subjects <- 1:n
   
   # Run per participant
-  pout <- map(subjects, ~Bayes_simulate_inev(.x, nTrial, initevidence, outcomeprob))
+  pout <- map(subjects, ~sim$bayes_main(.x, nTrial, initevidence, outcomeprob))
   # Adjust choiceindex
   pout <- map(pout, ~mutate(.x, choiceindex = ifelse(choice == 2, 0, 1)))
   # Return
   pout
 }
 
-sumdata_bl <- function(input, participant = NA) {
+bayes_sumdata <- function(input, participant = NA) {
   if (is.na(participant)) {
     # All participants
     data.frame(
@@ -159,10 +158,10 @@ sumdata_bl <- function(input, participant = NA) {
 
 # Simulate ----------------------------------------------------------------
 test <- bayes_sim(n = 10000) %>%
-  sumdata_bl()
+  bayes_sumdata()
 
 test_imp <- bayes_sim(n = 10000, outcomeprob = .25, initevidence = c(3, 9, 1, 3)) %>%
-  sumdata_bl()
+  bayes_sumdata()
 
 
 # Both conditions ---------------------------------------------------------

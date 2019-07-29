@@ -1,21 +1,15 @@
 # Dependencies ------------------------------------------------------------
 
 library(dplyr)
-library(purrr)
 library(ggplot2)
 library(papaja)
+library(purrr)
+# library(tidyr)
 
 # Functions ---------------------------------------------------------------
-match_minerva <- function(prompt, colmn) {
-  tibble(prompt, colmn) %>%
-    transmute(match = ifelse(prompt == colmn, 1, 0),
-              n = ifelse(prompt != 0 & colmn != 0, 1, 0)) %>%
-    summarize(pt = sum(match),
-              n = sum(n)) %>%
-    summarize(pt/n)
-}
+if (!exists("sim", mode = "environment")) {sim <- new.env()}
 
-mdm_main <- function(noise = noise,
+sim$mdm_main <- function(noise = noise,
                      nTrial = nTrial,
                      outcomeprob = outcomeprob,
                      initevidence = initevidence,
@@ -37,7 +31,7 @@ mdm_main <- function(noise = noise,
                  ncol = 4, byrow = TRUE) %>%
     data.frame() %>%
     mutate(trial = 1:n()) %>%
-    split(.$trial, ) %>%
+    split(.$trial) %>%
     map(~select(.x, -trial)) %>%
     map(~unlist(.x)) %>%
     map(~unname(.x))
@@ -57,10 +51,10 @@ mdm_main <- function(noise = noise,
   results <- results %>%
     mutate(left = (results %>%
                      split(.$trial) %>%
-                     map_dbl(~match_mdm(unlist(.x$evidence), prompt_left))),
+                     map_dbl(~sim$match_mdm(unlist(.x$evidence), prompt_left))),
            right = (results %>%
                       split(.$trial) %>%
-                      map_dbl(~match_mdm(unlist(.x$evidence), prompt_right)))) %>%
+                      map_dbl(~sim$match_mdm(unlist(.x$evidence), prompt_right)))) %>%
     # cumsum is equivalent to I (formula 3)
     mutate(cumleft = cumsum(left),
            cumright = cumsum(right))
@@ -75,9 +69,9 @@ mdm_main <- function(noise = noise,
     colmn <- results$evidence[t - 1] %>% unlist
     
     # Calculate matches with respective prompts and update cumulative matches
-    results$left[t] <- match_mdm(colmn, prompt_left)
+    results$left[t] <- sim$match_mdm(colmn, prompt_left)
     results$cumleft[t] <- results$cumleft[t - 1] + results$left[t]
-    results$right[t] <- match_mdm(colmn, prompt_right)
+    results$right[t] <- sim$match_mdm(colmn, prompt_right)
     results$cumright[t] <- results$cumright[t - 1] + results$right[t]
     
     # Determine choice and outcome
@@ -104,16 +98,28 @@ mdm_main <- function(noise = noise,
     i <- (subject - 1) * (nTrial + ninev) + t
     setTxtProgressBar(pb, i)
     
-    # Save as (noisy) memory
-    results$evidence[t] <- list(tmem * sample(c(rep(-1, noise), rep(1, 4 - noise))))
+    # Save as (noisy) memory (Learning parameter L)
+    results$evidence[t] <- list(tmem * rbinom(4, 1, (1 - noise)))
   }
   
   # Return
   results
 }
 
+# Define matching function
+sim$match_mdm <- function(prompt, colmn) {
+  tibble(prompt, colmn) %>%
+    transmute(match = ifelse(prompt == colmn, 1, 0),
+              n = ifelse(prompt != 0 & colmn != 0, 1, 0)) %>%
+    summarize(pt = sum(match),
+              n = sum(n)) %>%
+    summarize(s = ifelse(n != 0, pt/n, 0)) %>%
+    summarize(a = s^3) %>%
+    unlist()
+}
+
 mdm_sim <- function(n = 100,
-                    noise = 1,
+                    noise = .25,
                     nTrial = 84,
                     outcomeprob = .75,
                     initevidence = c(9, 3, 3, 1)) {
@@ -124,14 +130,14 @@ mdm_sim <- function(n = 100,
          envir = .GlobalEnv)
   
   # Run per participant
-  pout <- map(1:n, ~mdm_main(noise, nTrial, outcomeprob, initevidence, .x))
+  pout <- map(1:n, ~sim$mdm_main(noise, nTrial, outcomeprob, initevidence, .x))
   # Adjust choiceindex
   pout <- map(pout, ~mutate(.x, choiceindex = ifelse(choice == 1, 0, 1)))
   # Return
   pout
 }
 
-sumdata_mdm <- function(input, participant = NA) {
+mdm_sumdata <- function(input, participant = NA) {
   if (is.na(participant)) {
     # All participants
     data.frame(
@@ -157,12 +163,10 @@ sumdata_mdm <- function(input, participant = NA) {
 }
 
 # Simulate -------------------------------------------------------------
-test_pos <- mdm_sim() %>%
-  map(., ~mutate(.x, choiceindex = ifelse(choice == -1, 0, 1))) %>%
-  sumdata_mdm()
-test_neg <- mdm_sim(outcomeprob = .25, initevidence = c(3, 9, 1, 3)) %>%
-  map(., ~mutate(.x, choiceindex = ifelse(choice == -1, 0, 1))) %>%
-  sumdata_mdm()
+test_pos <- mdm_sim(n = 10000) %>%
+  mdm_sumdata()
+test_neg <- mdm_sim(n = 10000, outcomeprob = .25, initevidence = c(3, 9, 1, 3)) %>%
+  mdm_sumdata()
 
  
 
